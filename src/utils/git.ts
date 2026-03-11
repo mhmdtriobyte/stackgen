@@ -392,7 +392,8 @@ export async function initGitWithCommit(
 ): Promise<
   GitResult<{ path: string; branch: string; commitHash: string; message: string }>
 > {
-  const { defaultBranch, skipCommit, ...commitOptions } = options;
+  const { defaultBranch, skipCommit: _, ...commitOptions } = options;
+  void _; // Intentionally ignored - this function always creates a commit
 
   // Initialize repository
   const initResult = await initGit(projectPath, {

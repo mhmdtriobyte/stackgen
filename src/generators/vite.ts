@@ -19,8 +19,6 @@ import {
   generateVitePackageJson,
   generateViteTsConfig,
   getTemplateDir,
-  writeFile,
-  writeJsonFile,
 } from './base.js';
 
 // =============================================================================
@@ -142,7 +140,7 @@ createRoot(rootElement).render(
 /**
  * Generates src/App.tsx content
  */
-function generateAppTsx(config: ProjectConfig): string {
+function generateAppTsx(_config: ProjectConfig): string {
   return `import { Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { HomePage } from './pages/HomePage';
@@ -245,7 +243,7 @@ function generatePostCssConfig(): string {
 /**
  * Generates src/lib/api.ts content (API client)
  */
-function generateApiClient(config: ProjectConfig): string {
+function generateApiClient(_config: ProjectConfig): string {
   return `import axios, { type AxiosError, type AxiosRequestConfig } from 'axios';
 
 /**

@@ -24,7 +24,6 @@ import {
   showOutro,
   showError,
   showWarning,
-  showSuccess,
   showInfo,
   createSpinner,
 } from './cli/prompts.js';
@@ -219,7 +218,7 @@ function delay(ms: number): Promise<void> {
 /**
  * Shows the outro message with proper next steps based on project type
  */
-function showCustomOutro(options: ProjectOptions, destPath: string): void {
+function showCustomOutro(options: ProjectOptions, _destPath: string): void {
   const config = convertToProjectConfig(options);
   const isMonorepo = isMonorepoConfig(config);
 

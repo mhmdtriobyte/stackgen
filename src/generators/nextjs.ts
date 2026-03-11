@@ -19,9 +19,7 @@ import {
   generateNextJsPackageJson,
   generateNextJsTsConfig,
   getTemplateDir,
-  copyTemplates,
   writeFile,
-  writeJsonFile,
 } from './base.js';
 
 // =============================================================================
@@ -695,7 +693,7 @@ export async function GET() {
 /**
  * Generates app/api/auth/register/route.ts content (for Auth.js)
  */
-function generateRegisterRoute(config: ProjectConfig): string {
+function generateRegisterRoute(_config: ProjectConfig): string {
   return `import { NextRequest, NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { db } from "@/db";
@@ -837,7 +835,7 @@ export const config = {
 /**
  * Generates lib/auth.ts content for Auth.js
  */
-function generateAuthJsConfig(config: ProjectConfig): string {
+function generateAuthJsConfig(_config: ProjectConfig): string {
   return `import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
@@ -995,7 +993,7 @@ export const validateRequest = cache(async () => {
 /**
  * Generates Lucia auth API routes
  */
-function generateLuciaSignInRoute(config: ProjectConfig): string {
+function generateLuciaSignInRoute(_config: ProjectConfig): string {
   return `import { NextRequest, NextResponse } from "next/server";
 import { compare } from "bcryptjs";
 import { cookies } from "next/headers";
@@ -1065,7 +1063,7 @@ export async function POST(request: NextRequest) {
 `;
 }
 
-function generateLuciaSignUpRoute(config: ProjectConfig): string {
+function generateLuciaSignUpRoute(_config: ProjectConfig): string {
   return `import { NextRequest, NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { cookies } from "next/headers";
@@ -1346,9 +1344,10 @@ export class NextJsGenerator extends BaseGenerator {
       directories.push('app/api/auth/register');
     }
 
+    const fsExtra = await import('fs-extra');
     for (const dir of directories) {
       const dirPath = path.join(this.destPath, dir);
-      await require('fs-extra').ensureDir(dirPath);
+      await fsExtra.default.ensureDir(dirPath);
     }
   }
 
@@ -1500,8 +1499,6 @@ Button.displayName = "Button";
 
   protected override async setupDrizzle(): Promise<void> {
     // Override to use correct paths for Next.js
-    const { generateDrizzleFiles } = await import('./base.js');
-
     // Create custom paths for Next.js (db in src/db)
     await writeFile(
       path.join(this.destPath, 'drizzle.config.ts'),
@@ -1546,7 +1543,8 @@ Button.displayName = "Button";
 
     // Create migrations directory
     const migrationsDir = path.join(this.destPath, 'drizzle', 'migrations');
-    await require('fs-extra').ensureDir(migrationsDir);
+    const fsExtra = await import('fs-extra');
+    await fsExtra.default.ensureDir(migrationsDir);
     await writeFile(path.join(migrationsDir, '.gitkeep'), '');
   }
 
