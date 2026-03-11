@@ -11,6 +11,11 @@
 import ejs from 'ejs';
 import path from 'path';
 import fs from 'fs-extra';
+import { fileURLToPath } from 'url';
+
+// ESM equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // =============================================================================
 // TYPE DEFINITIONS
