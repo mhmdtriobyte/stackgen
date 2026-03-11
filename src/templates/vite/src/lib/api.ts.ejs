@@ -1,0 +1,129 @@
+import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
+
+/**
+ * API Error type for consistent error handling
+ */
+export interface ApiError {
+  message: string;
+  status: number;
+  code?: string;
+}
+
+/**
+ * Create and configure Axios instance for API communication
+ * Includes interceptors for error handling and auth
+ */
+function createApiClient(): AxiosInstance {
+  const client = axios.create({
+    baseURL: '', // Uses Vite proxy in development, same origin in production
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    withCredentials: true, // Include cookies for session auth
+  });
+
+  // Request interceptor
+  client.interceptors.request.use(
+    (config) => {
+      // You can add auth tokens here if using JWT
+      // const token = localStorage.getItem('token');
+      // if (token) {
+      //   config.headers.Authorization = `Bearer ${token}`;
+      // }
+      return config;
+    },
+    (error) => {
+      return Promise.reject(error);
+    }
+  );
+
+  // Response interceptor for error handling
+  client.interceptors.response.use(
+    (response) => response,
+    (error: AxiosError<{ message?: string; error?: string }>) => {
+      // Extract error message from response
+      const message =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        'An unexpected error occurred';
+
+      // Create standardized error
+      const apiError: ApiError = {
+        message,
+        status: error.response?.status || 500,
+        code: error.code,
+      };
+
+      // Handle specific error codes
+      if (error.response?.status === 401) {
+        // Unauthorized - could trigger logout or redirect
+        // window.location.href = '/login';
+      }
+
+      // Reject with Error instance for proper stack traces
+      return Promise.reject(new Error(apiError.message));
+    }
+  );
+
+  return client;
+}
+
+/**
+ * Configured Axios instance for API requests
+ * Proxied to Express backend in development
+ */
+export const api = createApiClient();
+
+/**
+ * Helper type for API response data
+ */
+export type ApiResponse<T> = {
+  data: T;
+  status: number;
+};
+
+/**
+ * Helper functions for common HTTP methods with type safety
+ */
+export const apiHelpers = {
+  /**
+   * GET request with type-safe response
+   */
+  async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    const response = await api.get<T>(url, config);
+    return response.data;
+  },
+
+  /**
+   * POST request with type-safe request and response
+   */
+  async post<T, D = unknown>(url: string, data?: D, config?: AxiosRequestConfig): Promise<T> {
+    const response = await api.post<T>(url, data, config);
+    return response.data;
+  },
+
+  /**
+   * PUT request with type-safe request and response
+   */
+  async put<T, D = unknown>(url: string, data?: D, config?: AxiosRequestConfig): Promise<T> {
+    const response = await api.put<T>(url, data, config);
+    return response.data;
+  },
+
+  /**
+   * PATCH request with type-safe request and response
+   */
+  async patch<T, D = unknown>(url: string, data?: D, config?: AxiosRequestConfig): Promise<T> {
+    const response = await api.patch<T>(url, data, config);
+    return response.data;
+  },
+
+  /**
+   * DELETE request with type-safe response
+   */
+  async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    const response = await api.delete<T>(url, config);
+    return response.data;
+  },
+};

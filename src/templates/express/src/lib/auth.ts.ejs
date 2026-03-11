@@ -1,0 +1,315 @@
+<% if (authType === 'lucia') { -%>
+import { Lucia, TimeSpan } from 'lucia';
+import { DrizzlePostgreSQLAdapter } from '@lucia-auth/adapter-drizzle';
+<% if (database === 'postgresql') { -%>
+import { DrizzlePostgreSQLAdapter as Adapter } from '@lucia-auth/adapter-drizzle';
+<% } else { -%>
+import { DrizzleSQLiteAdapter as Adapter } from '@lucia-auth/adapter-drizzle';
+<% } -%>
+import { db, users, sessions } from './db.js';
+
+/**
+ * Lucia Auth Configuration
+ * Provides session-based authentication with database storage
+ */
+
+// Create Lucia adapter for Drizzle
+const adapter = new Adapter(db, sessions, users);
+
+/**
+ * Initialize Lucia instance
+ */
+export const lucia = new Lucia(adapter, {
+  // Session configuration
+  sessionExpiresIn: new TimeSpan(7, 'd'), // 7 days
+  sessionCookie: {
+    name: 'session',
+    expires: false, // Session cookies are deleted when browser closes (set to true for persistent)
+    attributes: {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    },
+  },
+
+  // User attributes to include in session
+  getUserAttributes: (attributes) => {
+    return {
+      email: attributes.email,
+      name: attributes.name,
+      emailVerified: attributes.emailVerified,
+    };
+  },
+});
+
+/**
+ * Lucia type declarations
+ * Extends Lucia types with our user attributes
+ */
+declare module 'lucia' {
+  interface Register {
+    Lucia: typeof lucia;
+    DatabaseUserAttributes: DatabaseUserAttributes;
+  }
+}
+
+/**
+ * Database user attributes available in Lucia sessions
+ */
+interface DatabaseUserAttributes {
+  email: string;
+  name: string | null;
+  emailVerified: Date | null;
+}
+
+/**
+ * Helper function to validate password strength
+ */
+export function validatePassword(password: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (password.length < 8) {
+    errors.push('Password must be at least 8 characters long');
+  }
+
+  if (!/[a-z]/.test(password)) {
+    errors.push('Password must contain at least one lowercase letter');
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Password must contain at least one uppercase letter');
+  }
+
+  if (!/[0-9]/.test(password)) {
+    errors.push('Password must contain at least one number');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Helper function to validate email format
+ */
+export function validateEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+<% } else if (authType === 'authjs') { -%>
+import { Auth } from '@auth/core';
+import { ExpressAuth } from '@auth/express';
+import { DrizzleAdapter } from '@auth/drizzle-adapter';
+import Credentials from '@auth/core/providers/credentials';
+import bcrypt from 'bcryptjs';
+import { db, users } from './db.js';
+import { eq } from 'drizzle-orm';
+
+/**
+ * Auth.js Configuration
+ * Provides authentication with multiple providers
+ */
+
+/**
+ * Auth.js configuration object
+ */
+export const authConfig = {
+  // Use Drizzle adapter for database storage
+  adapter: DrizzleAdapter(db),
+
+  // Authentication providers
+  providers: [
+    // Email/Password authentication
+    Credentials({
+      name: 'credentials',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
+
+        const email = credentials.email as string;
+        const password = credentials.password as string;
+
+        // Find user by email
+        const [user] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, email.toLowerCase()))
+          .limit(1);
+
+        if (!user || !user.hashedPassword) {
+          return null;
+        }
+
+        // Verify password
+        const validPassword = await bcrypt.compare(password, user.hashedPassword);
+        if (!validPassword) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        };
+      },
+    }),
+    // Add more providers here (Google, GitHub, etc.)
+    // Example:
+    // GitHub({
+    //   clientId: process.env.GITHUB_CLIENT_ID,
+    //   clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    // }),
+  ],
+
+  // Session configuration
+  session: {
+    strategy: 'jwt' as const,
+    maxAge: 7 * 24 * 60 * 60, // 7 days
+  },
+
+  // Callbacks for customizing behavior
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user && token.id) {
+        session.user.id = token.id as string;
+      }
+      return session;
+    },
+  },
+
+  // Pages configuration
+  pages: {
+    signIn: '/login',
+    error: '/login',
+  },
+
+  // Secret for signing tokens
+  secret: process.env.AUTH_SECRET,
+
+  // Trust host header
+  trustHost: true,
+};
+
+/**
+ * Express Auth middleware
+ */
+export const authHandler = ExpressAuth(authConfig);
+
+/**
+ * Helper function to validate password strength
+ */
+export function validatePassword(password: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (password.length < 8) {
+    errors.push('Password must be at least 8 characters long');
+  }
+
+  if (!/[a-z]/.test(password)) {
+    errors.push('Password must contain at least one lowercase letter');
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Password must contain at least one uppercase letter');
+  }
+
+  if (!/[0-9]/.test(password)) {
+    errors.push('Password must contain at least one number');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Helper function to validate email format
+ */
+export function validateEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+<% } else { -%>
+/**
+ * Basic session-based authentication utilities
+ * Uses express-session for session management
+ */
+
+import bcrypt from 'bcryptjs';
+
+/**
+ * Helper function to hash a password
+ */
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 12);
+}
+
+/**
+ * Helper function to verify a password against a hash
+ */
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash);
+}
+
+/**
+ * Helper function to validate password strength
+ */
+export function validatePassword(password: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (password.length < 8) {
+    errors.push('Password must be at least 8 characters long');
+  }
+
+  if (!/[a-z]/.test(password)) {
+    errors.push('Password must contain at least one lowercase letter');
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Password must contain at least one uppercase letter');
+  }
+
+  if (!/[0-9]/.test(password)) {
+    errors.push('Password must contain at least one number');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Helper function to validate email format
+ */
+export function validateEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+/**
+ * Generate a secure random token
+ */
+export function generateToken(length: number = 32): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  const randomValues = new Uint8Array(length);
+  crypto.getRandomValues(randomValues);
+  for (let i = 0; i < length; i++) {
+    token += chars[randomValues[i]! % chars.length];
+  }
+  return token;
+}
+<% } -%>

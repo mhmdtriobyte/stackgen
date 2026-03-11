@@ -1,0 +1,356 @@
+# <%= projectName %>
+
+<%= description || 'A modern full-stack application built with TypeScript.' %>
+
+<% if (frontend === 'nextjs' || frontend === 'react') { -%>
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+<% } -%>
+<% if (frontend === 'nextjs') { -%>
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+<% } -%>
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+<% if (database === 'postgresql') { -%>
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
+<% } else if (database === 'mysql') { -%>
+![MySQL](https://img.shields.io/badge/MySQL-005C84?style=for-the-badge&logo=mysql&logoColor=white)
+<% } else if (database === 'sqlite') { -%>
+![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)
+<% } -%>
+<% if (orm === 'prisma') { -%>
+![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
+<% } else if (orm === 'drizzle') { -%>
+![Drizzle](https://img.shields.io/badge/Drizzle-C5F74F?style=for-the-badge&logo=drizzle&logoColor=black)
+<% } -%>
+<% if (features && features.includes('tailwind')) { -%>
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+<% } -%>
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+
+## Tech Stack
+
+<% if (frontend && frontend !== 'none') { -%>
+### Frontend
+<% if (frontend === 'nextjs') { -%>
+- **Next.js 15** - React framework with App Router
+<% } else if (frontend === 'react') { -%>
+- **React 19** - UI library
+<% } -%>
+- **TypeScript** - Type-safe JavaScript
+<% if (features && features.includes('tailwind')) { -%>
+- **Tailwind CSS** - Utility-first CSS framework
+<% } -%>
+
+<% } -%>
+### Backend
+<% if (backend === 'express') { -%>
+- **Express.js** - Web framework for Node.js
+<% } else if (backend === 'fastify') { -%>
+- **Fastify** - Fast and low overhead web framework
+<% } else if (backend === 'hono') { -%>
+- **Hono** - Ultrafast web framework
+<% } else if (frontend === 'nextjs') { -%>
+- **Next.js API Routes** - Built-in API with Server Actions
+<% } -%>
+- **TypeScript** - Type-safe server code
+<% if (auth && auth !== 'none') { -%>
+- **Auth.js** - Authentication library
+<% } -%>
+
+### Database
+<% if (database === 'postgresql') { -%>
+- **PostgreSQL** - Relational database
+<% } else if (database === 'mysql') { -%>
+- **MySQL** - Relational database
+<% } else if (database === 'sqlite') { -%>
+- **SQLite** - Embedded database
+<% } -%>
+<% if (orm === 'prisma') { -%>
+- **Prisma** - Type-safe ORM
+<% } else if (orm === 'drizzle') { -%>
+- **Drizzle ORM** - Lightweight TypeScript ORM
+<% } -%>
+
+### DevOps & Tooling
+- **Docker** - Containerization
+- **GitHub Actions** - CI/CD
+- **ESLint** - Code linting
+- **Prettier** - Code formatting
+- **Husky** - Git hooks
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js <%= nodeVersion || '20' %>.x or later
+<% if (packageManager === 'pnpm') { -%>
+- pnpm 9.x or later
+<% } else if (packageManager === 'yarn') { -%>
+- Yarn 1.22.x or later
+<% } else if (packageManager === 'bun') { -%>
+- Bun 1.x or later
+<% } -%>
+<% if (database === 'postgresql') { -%>
+- PostgreSQL 16.x or Docker
+<% } else if (database === 'mysql') { -%>
+- MySQL 8.x or Docker
+<% } -%>
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd <%= projectName.toLowerCase().replace(/\s+/g, '-') %>
+   ```
+
+2. Install dependencies:
+   ```bash
+<% if (packageManager === 'pnpm') { -%>
+   pnpm install
+<% } else if (packageManager === 'yarn') { -%>
+   yarn install
+<% } else if (packageManager === 'bun') { -%>
+   bun install
+<% } else { -%>
+   npm install
+<% } -%>
+   ```
+
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
+
+<% if (database !== 'sqlite') { -%>
+4. Start the database (using Docker):
+   ```bash
+   docker-compose up -d <%= database === 'postgresql' ? 'postgres' : 'mysql' %>
+   ```
+
+<% } -%>
+<% if (orm === 'prisma') { -%>
+<%= database !== 'sqlite' ? '5' : '4' %>. Run database migrations:
+   ```bash
+<% if (packageManager === 'pnpm') { -%>
+   pnpm prisma migrate dev
+<% } else if (packageManager === 'yarn') { -%>
+   yarn prisma migrate dev
+<% } else if (packageManager === 'bun') { -%>
+   bunx prisma migrate dev
+<% } else { -%>
+   npx prisma migrate dev
+<% } -%>
+   ```
+
+<% } else if (orm === 'drizzle') { -%>
+<%= database !== 'sqlite' ? '5' : '4' %>. Run database migrations:
+   ```bash
+<% if (packageManager === 'pnpm') { -%>
+   pnpm db:push
+<% } else if (packageManager === 'yarn') { -%>
+   yarn db:push
+<% } else if (packageManager === 'bun') { -%>
+   bun run db:push
+<% } else { -%>
+   npm run db:push
+<% } -%>
+   ```
+
+<% } -%>
+<%= (orm ? (database !== 'sqlite' ? '6' : '5') : (database !== 'sqlite' ? '5' : '4')) %>. Start the development server:
+   ```bash
+<% if (packageManager === 'pnpm') { -%>
+   pnpm dev
+<% } else if (packageManager === 'yarn') { -%>
+   yarn dev
+<% } else if (packageManager === 'bun') { -%>
+   bun dev
+<% } else { -%>
+   npm run dev
+<% } -%>
+   ```
+
+<%= (orm ? (database !== 'sqlite' ? '7' : '6') : (database !== 'sqlite' ? '6' : '5')) %>. Open [http://localhost:<%= port || 3000 %>](http://localhost:<%= port || 3000 %>) in your browser.
+
+## Available Scripts
+
+| Script | Description |
+|--------|-------------|
+| `dev` | Start development server with hot reload |
+| `build` | Build for production |
+| `start` | Start production server |
+| `lint` | Run ESLint |
+| `lint:fix` | Fix ESLint errors |
+| `format` | Format code with Prettier |
+| `format:check` | Check code formatting |
+| `type-check` | Run TypeScript type checking |
+| `test` | Run tests |
+| `test:watch` | Run tests in watch mode |
+| `test:coverage` | Run tests with coverage report |
+<% if (orm === 'prisma') { -%>
+| `prisma:generate` | Generate Prisma client |
+| `prisma:migrate` | Run database migrations |
+| `prisma:studio` | Open Prisma Studio |
+<% } else if (orm === 'drizzle') { -%>
+| `db:generate` | Generate Drizzle migrations |
+| `db:push` | Push schema to database |
+| `db:studio` | Open Drizzle Studio |
+<% } -%>
+
+## Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `NODE_ENV` | Environment (development/production/test) | Yes |
+| `PORT` | Server port | No (default: <%= port || 3000 %>) |
+| `DATABASE_URL` | Database connection string | Yes |
+<% if (auth && auth !== 'none') { -%>
+| `AUTH_SECRET` | Secret for signing tokens (min 32 chars) | Yes |
+| `AUTH_URL` | Application URL for auth callbacks | Yes |
+<% if (auth === 'google' || auth === 'oauth') { -%>
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID | For Google auth |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | For Google auth |
+<% } -%>
+<% if (auth === 'github' || auth === 'oauth') { -%>
+| `GITHUB_CLIENT_ID` | GitHub OAuth client ID | For GitHub auth |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth client secret | For GitHub auth |
+<% } -%>
+<% } -%>
+
+See `.env.example` for all available environment variables.
+
+## Project Structure
+
+```
+<%= projectName.toLowerCase().replace(/\s+/g, '-') %>/
+<% if (frontend === 'nextjs') { -%>
+├── app/                    # Next.js App Router
+│   ├── (auth)/            # Auth route group
+│   ├── api/               # API routes
+│   ├── layout.tsx         # Root layout
+│   └── page.tsx           # Home page
+├── components/            # React components
+│   ├── ui/               # UI primitives
+│   └── ...               # Feature components
+<% } else { -%>
+├── src/
+│   ├── routes/           # API routes
+│   ├── services/         # Business logic
+│   ├── middleware/       # Express middleware
+│   └── index.ts          # Entry point
+<% } -%>
+├── lib/                   # Shared utilities
+│   ├── db/               # Database client
+<% if (auth && auth !== 'none') { -%>
+│   ├── auth/             # Auth configuration
+<% } -%>
+│   └── utils/            # Helper functions
+<% if (orm === 'prisma') { -%>
+├── prisma/
+│   ├── schema.prisma     # Database schema
+│   └── migrations/       # Database migrations
+<% } else if (orm === 'drizzle') { -%>
+├── drizzle/
+│   ├── schema.ts         # Database schema
+│   └── migrations/       # Database migrations
+<% } -%>
+├── public/               # Static assets
+├── tests/                # Test files
+├── docker/               # Docker configuration
+├── .github/              # GitHub Actions
+├── .env.example          # Environment template
+├── package.json
+└── README.md
+```
+
+## Docker
+
+### Development
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f app
+
+# Stop all services
+docker-compose down
+```
+
+### Production
+
+```bash
+# Build and start
+docker-compose -f docker-compose.yml up -d --build
+
+# Stop
+docker-compose -f docker-compose.yml down
+```
+
+## Deployment
+
+### Vercel (Recommended for Next.js)
+
+1. Connect your repository to Vercel
+2. Configure environment variables
+3. Deploy
+
+### Docker
+
+1. Build the Docker image:
+   ```bash
+   docker build -t <%= projectName.toLowerCase().replace(/\s+/g, '-') %> .
+   ```
+
+2. Run the container:
+   ```bash
+   docker run -p <%= port || 3000 %>:<%= port || 3000 %> --env-file .env <%= projectName.toLowerCase().replace(/\s+/g, '-') %>
+   ```
+
+### Manual
+
+1. Build the application:
+   ```bash
+<% if (packageManager === 'pnpm') { -%>
+   pnpm build
+<% } else if (packageManager === 'yarn') { -%>
+   yarn build
+<% } else if (packageManager === 'bun') { -%>
+   bun run build
+<% } else { -%>
+   npm run build
+<% } -%>
+   ```
+
+2. Start the production server:
+   ```bash
+<% if (packageManager === 'pnpm') { -%>
+   pnpm start
+<% } else if (packageManager === 'yarn') { -%>
+   yarn start
+<% } else if (packageManager === 'bun') { -%>
+   bun run start
+<% } else { -%>
+   npm start
+<% } -%>
+   ```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Commit your changes: `git commit -m 'Add my feature'`
+4. Push to the branch: `git push origin feature/my-feature`
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<p align="center">
+  Built with StackGen
+</p>

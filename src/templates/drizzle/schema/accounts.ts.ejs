@@ -1,0 +1,182 @@
+/**
+ * Accounts Table Schema (Auth.js / NextAuth Adapter)
+ *
+ * Defines the accounts table for OAuth provider connections.
+ * This table stores the link between users and their OAuth providers.
+ * Required for Auth.js (NextAuth) OAuth functionality.
+ *
+ * Generated for: <%- projectName %>
+ * Database: <%- database %>
+ */
+
+<% if (database === 'postgresql') { -%>
+import {
+  pgTable,
+  text,
+  integer,
+  uuid,
+  primaryKey,
+  index,
+} from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
+import { users } from './users';
+
+/**
+ * Accounts table - OAuth provider account links
+ *
+ * This table follows the Auth.js adapter schema specification.
+ * Each row represents a connection between a user and an OAuth provider.
+ *
+ * Fields:
+ * - userId: Reference to the user
+ * - type: Account type (oauth, oidc, email, webauthn)
+ * - provider: OAuth provider name (google, github, etc.)
+ * - providerAccountId: User's ID from the OAuth provider
+ * - refresh_token: OAuth refresh token
+ * - access_token: OAuth access token
+ * - expires_at: Token expiration timestamp
+ * - token_type: Type of token (usually "Bearer")
+ * - scope: OAuth scopes granted
+ * - id_token: OpenID Connect ID token
+ * - session_state: Provider session state
+ */
+export const accounts = pgTable(
+  'accounts',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: text('type').$type<'oauth' | 'oidc' | 'email' | 'webauthn'>().notNull(),
+    provider: text('provider').notNull(),
+    providerAccountId: text('provider_account_id').notNull(),
+    refresh_token: text('refresh_token'),
+    access_token: text('access_token'),
+    expires_at: integer('expires_at'),
+    token_type: text('token_type'),
+    scope: text('scope'),
+    id_token: text('id_token'),
+    session_state: text('session_state'),
+  },
+  (table) => ({
+    // Composite primary key on provider + providerAccountId
+    pk: primaryKey({ columns: [table.provider, table.providerAccountId] }),
+    // Index on userId for finding all accounts for a user
+    userIdIdx: index('accounts_user_id_idx').on(table.userId),
+  })
+);
+
+/**
+ * Verification tokens table - Email verification and magic link tokens
+ *
+ * Used by Auth.js for email verification and passwordless authentication.
+ */
+export const verificationTokens = pgTable(
+  'verification_tokens',
+  {
+    identifier: text('identifier').notNull(),
+    token: text('token').notNull(),
+    expires: integer('expires').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.identifier, table.token] }),
+  })
+);
+
+/**
+ * Accounts relations - defines relationship with users table
+ */
+export const accountsRelations = relations(accounts, ({ one }) => ({
+  user: one(users, {
+    fields: [accounts.userId],
+    references: [users.id],
+  }),
+}));
+
+<% } else if (database === 'sqlite') { -%>
+import {
+  sqliteTable,
+  text,
+  integer,
+  primaryKey,
+  index,
+} from 'drizzle-orm/sqlite-core';
+import { relations } from 'drizzle-orm';
+import { users } from './users';
+
+/**
+ * Accounts table - OAuth provider account links
+ *
+ * This table follows the Auth.js adapter schema specification.
+ * Each row represents a connection between a user and an OAuth provider.
+ *
+ * Fields:
+ * - userId: Reference to the user
+ * - type: Account type (oauth, oidc, email, webauthn)
+ * - provider: OAuth provider name (google, github, etc.)
+ * - providerAccountId: User's ID from the OAuth provider
+ * - refresh_token: OAuth refresh token
+ * - access_token: OAuth access token
+ * - expires_at: Token expiration timestamp
+ * - token_type: Type of token (usually "Bearer")
+ * - scope: OAuth scopes granted
+ * - id_token: OpenID Connect ID token
+ * - session_state: Provider session state
+ */
+export const accounts = sqliteTable(
+  'accounts',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: text('type').$type<'oauth' | 'oidc' | 'email' | 'webauthn'>().notNull(),
+    provider: text('provider').notNull(),
+    providerAccountId: text('provider_account_id').notNull(),
+    refresh_token: text('refresh_token'),
+    access_token: text('access_token'),
+    expires_at: integer('expires_at'),
+    token_type: text('token_type'),
+    scope: text('scope'),
+    id_token: text('id_token'),
+    session_state: text('session_state'),
+  },
+  (table) => ({
+    // Composite primary key on provider + providerAccountId
+    pk: primaryKey({ columns: [table.provider, table.providerAccountId] }),
+    // Index on userId for finding all accounts for a user
+    userIdIdx: index('accounts_user_id_idx').on(table.userId),
+  })
+);
+
+/**
+ * Verification tokens table - Email verification and magic link tokens
+ *
+ * Used by Auth.js for email verification and passwordless authentication.
+ */
+export const verificationTokens = sqliteTable(
+  'verification_tokens',
+  {
+    identifier: text('identifier').notNull(),
+    token: text('token').notNull(),
+    expires: integer('expires').notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.identifier, table.token] }),
+  })
+);
+
+/**
+ * Accounts relations - defines relationship with users table
+ */
+export const accountsRelations = relations(accounts, ({ one }) => ({
+  user: one(users, {
+    fields: [accounts.userId],
+    references: [users.id],
+  }),
+}));
+
+<% } -%>
+// Type exports for use throughout the application
+export type Account = typeof accounts.$inferSelect;
+export type NewAccount = typeof accounts.$inferInsert;
+export type VerificationToken = typeof verificationTokens.$inferSelect;
+export type NewVerificationToken = typeof verificationTokens.$inferInsert;

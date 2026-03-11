@@ -1,0 +1,272 @@
+/**
+ * Database Type Definitions
+ *
+ * TypeScript types derived from Drizzle ORM schema definitions.
+ * These types ensure type safety throughout the application.
+ *
+ * Generated for: <%- projectName %>
+ * Database: <%- database %>
+ */
+
+import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
+import type { users } from './schema/users';
+import type { sessions } from './schema/sessions';
+<% if (authType === 'authjs') { -%>
+import type { accounts, verificationTokens } from './schema/accounts';
+<% } -%>
+
+// ============================================================================
+// User Types
+// ============================================================================
+
+/**
+ * User type - represents a user record from the database
+ * Use this type when reading user data from the database
+ */
+export type User = InferSelectModel<typeof users>;
+
+/**
+ * NewUser type - represents data needed to create a new user
+ * Use this type when inserting a new user into the database
+ */
+export type NewUser = InferInsertModel<typeof users>;
+
+/**
+ * UserUpdate type - represents data that can be updated on a user
+ * All fields are optional except for those used for identification
+ */
+export type UserUpdate = Partial<Omit<NewUser, 'id' | 'createdAt'>> & {
+  updatedAt?: Date;
+};
+
+/**
+ * PublicUser type - user data safe to expose to the client
+ * Excludes sensitive fields like passwordHash
+ */
+export type PublicUser = Omit<User, 'passwordHash'>;
+
+/**
+ * UserWithRelations type - user with related data loaded
+ */
+export type UserWithRelations = User & {
+  sessions?: Session[];
+<% if (authType === 'authjs') { -%>
+  accounts?: Account[];
+<% } -%>
+};
+
+// ============================================================================
+// Session Types
+// ============================================================================
+
+/**
+ * Session type - represents a session record from the database
+ * Use this type when reading session data from the database
+ */
+export type Session = InferSelectModel<typeof sessions>;
+
+/**
+ * NewSession type - represents data needed to create a new session
+ * Use this type when inserting a new session into the database
+ */
+export type NewSession = InferInsertModel<typeof sessions>;
+
+/**
+ * SessionWithUser type - session with user data loaded
+ */
+export type SessionWithUser = Session & {
+  user: User;
+};
+
+<% if (authType === 'authjs') { -%>
+// ============================================================================
+// Account Types (OAuth)
+// ============================================================================
+
+/**
+ * Account type - represents an OAuth account record from the database
+ * Use this type when reading account data from the database
+ */
+export type Account = InferSelectModel<typeof accounts>;
+
+/**
+ * NewAccount type - represents data needed to create a new OAuth account link
+ * Use this type when inserting a new account into the database
+ */
+export type NewAccount = InferInsertModel<typeof accounts>;
+
+/**
+ * AccountWithUser type - account with user data loaded
+ */
+export type AccountWithUser = Account & {
+  user: User;
+};
+
+// ============================================================================
+// Verification Token Types
+// ============================================================================
+
+/**
+ * VerificationToken type - represents a verification token record
+ * Used for email verification and magic link authentication
+ */
+export type VerificationToken = InferSelectModel<typeof verificationTokens>;
+
+/**
+ * NewVerificationToken type - represents data needed to create a verification token
+ */
+export type NewVerificationToken = InferInsertModel<typeof verificationTokens>;
+
+<% } -%>
+// ============================================================================
+// Utility Types
+// ============================================================================
+
+/**
+ * DatabaseId type - the type used for primary keys
+ */
+<% if (database === 'postgresql') { -%>
+export type DatabaseId = string; // UUID
+<% } else { -%>
+export type DatabaseId = string; // Text UUID
+<% } -%>
+
+/**
+ * Timestamp type - how timestamps are stored
+ */
+<% if (database === 'postgresql') { -%>
+export type Timestamp = Date;
+<% } else { -%>
+export type Timestamp = Date; // Stored as Unix timestamp, returned as Date
+<% } -%>
+
+/**
+ * SortOrder type - for query ordering
+ */
+export type SortOrder = 'asc' | 'desc';
+
+/**
+ * PaginationParams type - standard pagination parameters
+ */
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: SortOrder;
+}
+
+/**
+ * PaginatedResult type - paginated query result
+ */
+export interface PaginatedResult<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
+
+// ============================================================================
+// Query Result Types
+// ============================================================================
+
+/**
+ * QueryResult type - generic query result wrapper
+ */
+export interface QueryResult<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+/**
+ * MutationResult type - result of insert/update/delete operations
+ */
+export interface MutationResult<T = void> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  affectedRows?: number;
+}
+
+// ============================================================================
+// Auth Types
+// ============================================================================
+
+<% if (authType === 'lucia') { -%>
+/**
+ * Lucia session attributes - custom data stored in sessions
+ * Extend this interface to add custom session data
+ */
+export interface SessionAttributes {
+  // Add custom session attributes here
+  // Example: ipAddress?: string;
+}
+
+/**
+ * Lucia user attributes - custom user data beyond database fields
+ * Extend this interface to add custom user data
+ */
+export interface UserAttributes {
+  email: string;
+  name: string | null;
+  emailVerified: Date | null;
+}
+
+/**
+ * AuthUser type - the user type used throughout authentication
+ */
+export interface AuthUser extends UserAttributes {
+  id: DatabaseId;
+}
+
+/**
+ * AuthSession type - the session type used throughout authentication
+ */
+export interface AuthSession extends SessionAttributes {
+  id: string;
+  userId: DatabaseId;
+  expiresAt: Date;
+}
+<% } else { -%>
+/**
+ * Auth.js AdapterUser type - user type expected by Auth.js adapter
+ */
+export interface AdapterUser {
+  id: DatabaseId;
+  email: string;
+  emailVerified: Date | null;
+  name?: string | null;
+  image?: string | null;
+}
+
+/**
+ * Auth.js AdapterSession type - session type expected by Auth.js adapter
+ */
+export interface AdapterSession {
+  sessionToken: string;
+  userId: DatabaseId;
+  expires: Date;
+}
+
+/**
+ * Auth.js AdapterAccount type - account type expected by Auth.js adapter
+ */
+export interface AdapterAccount {
+  userId: DatabaseId;
+  type: 'oauth' | 'oidc' | 'email' | 'webauthn';
+  provider: string;
+  providerAccountId: string;
+  refresh_token?: string | null;
+  access_token?: string | null;
+  expires_at?: number | null;
+  token_type?: string | null;
+  scope?: string | null;
+  id_token?: string | null;
+  session_state?: string | null;
+}
+<% } -%>

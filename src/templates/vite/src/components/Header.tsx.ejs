@@ -1,0 +1,56 @@
+import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import AuthButton from './AuthButton';
+
+/**
+ * Navigation header component
+ * Displays logo, navigation links, and auth button
+ */
+function Header() {
+  const { user } = useAuth();
+
+  return (
+    <header className="bg-white border-b border-gray-200">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo and brand */}
+          <Link to="/" className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-lg">
+                <%= projectName.charAt(0).toUpperCase() %>
+              </span>
+            </div>
+            <span className="font-semibold text-gray-900 text-lg">
+              <%= projectName %>
+            </span>
+          </Link>
+
+          {/* Navigation links */}
+          <nav className="hidden md:flex items-center space-x-6">
+            <Link
+              to="/"
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              Home
+            </Link>
+            {user && (
+              <Link
+                to="/dashboard"
+                className="text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Dashboard
+              </Link>
+            )}
+          </nav>
+
+          {/* Auth button */}
+          <div className="flex items-center space-x-4">
+            <AuthButton />
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+export default Header;

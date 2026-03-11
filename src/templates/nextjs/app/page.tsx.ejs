@@ -1,0 +1,104 @@
+import Link from "next/link";
+import { Header } from "@/components/Header";
+<% if (authType === 'authjs') { -%>
+import { auth } from "@/lib/auth";
+<% } else { -%>
+import { validateRequest } from "@/lib/auth";
+<% } -%>
+
+export default async function HomePage() {
+<% if (authType === 'authjs') { -%>
+  const session = await auth();
+  const user = session?.user;
+<% } else { -%>
+  const { user } = await validateRequest();
+<% } -%>
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-1 container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-4xl font-bold mb-6">
+            Welcome to <%- projectName %>
+          </h1>
+
+          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-6 mb-8">
+            <h2 className="text-xl font-semibold mb-4">Authentication Status</h2>
+            {user ? (
+              <div className="space-y-2">
+                <p className="text-green-600 dark:text-green-400">
+                  Signed in as: <span className="font-medium">{user.email}</span>
+                </p>
+                <Link
+                  href="/dashboard"
+                  className="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Go to Dashboard
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-gray-600 dark:text-gray-400">
+                  You are not signed in
+                </p>
+                <Link
+                  href="/login"
+                  className="inline-block bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  Sign In
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-2">Public API</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Test the public API endpoint that requires no authentication.
+              </p>
+              <Link
+                href="/api/public"
+                className="text-blue-600 hover:underline"
+                target="_blank"
+              >
+                /api/public
+              </Link>
+            </div>
+
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-2">Protected API</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Test the protected API endpoint that requires authentication.
+              </p>
+              <Link
+                href="/api/protected"
+                className="text-blue-600 hover:underline"
+                target="_blank"
+              >
+                /api/protected
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-12 text-center text-gray-500 dark:text-gray-400">
+            <p>Built with Next.js 15, Tailwind CSS, Drizzle ORM</p>
+            <p className="mt-1">
+<% if (database === 'postgresql') { -%>
+              Database: PostgreSQL |
+<% } else { -%>
+              Database: SQLite |
+<% } -%>
+<% if (authType === 'authjs') { -%>
+              Auth: Auth.js (NextAuth v5)
+<% } else { -%>
+              Auth: Lucia
+<% } -%>
+            </p>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

@@ -1,0 +1,179 @@
+/**
+ * Sessions Table Schema
+ *
+ * Defines the sessions table structure for authentication session management.
+<% if (authType === 'lucia') { -%>
+ * Optimized for Lucia Auth session handling.
+<% } else { -%>
+ * Optimized for Auth.js (NextAuth) session handling.
+<% } -%>
+ * Generated for: <%- projectName %>
+ * Database: <%- database %>
+ */
+
+<% if (database === 'postgresql') { -%>
+import {
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  index,
+} from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
+import { users } from './users';
+
+<% if (authType === 'lucia') { -%>
+/**
+ * Sessions table - Lucia Auth session storage
+ *
+ * Fields:
+ * - id: Session ID (primary key, provided by Lucia)
+ * - userId: Reference to the user who owns this session
+ * - expiresAt: When the session expires
+ * - createdAt: When the session was created
+ *
+ * Lucia manages session creation, validation, and cleanup.
+ */
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: timestamp('expires_at', {
+      withTimezone: true,
+      mode: 'date',
+    }).notNull(),
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => ({
+    // Index on userId for finding all sessions for a user
+    userIdIdx: index('sessions_user_id_idx').on(table.userId),
+    // Index on expiresAt for cleanup queries
+    expiresAtIdx: index('sessions_expires_at_idx').on(table.expiresAt),
+  })
+);
+<% } else { -%>
+/**
+ * Sessions table - Auth.js (NextAuth) session storage
+ *
+ * Fields:
+ * - sessionToken: Unique session token (primary key)
+ * - userId: Reference to the user who owns this session
+ * - expires: When the session expires
+ *
+ * Auth.js manages session creation, validation, and cleanup.
+ */
+export const sessions = pgTable(
+  'sessions',
+  {
+    sessionToken: text('session_token').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expires: timestamp('expires', { mode: 'date' }).notNull(),
+  },
+  (table) => ({
+    // Index on userId for finding all sessions for a user
+    userIdIdx: index('sessions_user_id_idx').on(table.userId),
+    // Index on expires for cleanup queries
+    expiresIdx: index('sessions_expires_idx').on(table.expires),
+  })
+);
+<% } -%>
+
+/**
+ * Sessions relations - defines relationship with users table
+ */
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
+  }),
+}));
+
+<% } else if (database === 'sqlite') { -%>
+import {
+  sqliteTable,
+  text,
+  integer,
+  index,
+} from 'drizzle-orm/sqlite-core';
+import { relations, sql } from 'drizzle-orm';
+import { users } from './users';
+
+<% if (authType === 'lucia') { -%>
+/**
+ * Sessions table - Lucia Auth session storage
+ *
+ * Fields:
+ * - id: Session ID (primary key, provided by Lucia)
+ * - userId: Reference to the user who owns this session
+ * - expiresAt: When the session expires (Unix timestamp)
+ * - createdAt: When the session was created (Unix timestamp)
+ *
+ * Lucia manages session creation, validation, and cleanup.
+ */
+export const sessions = sqliteTable(
+  'sessions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => ({
+    // Index on userId for finding all sessions for a user
+    userIdIdx: index('sessions_user_id_idx').on(table.userId),
+    // Index on expiresAt for cleanup queries
+    expiresAtIdx: index('sessions_expires_at_idx').on(table.expiresAt),
+  })
+);
+<% } else { -%>
+/**
+ * Sessions table - Auth.js (NextAuth) session storage
+ *
+ * Fields:
+ * - sessionToken: Unique session token (primary key)
+ * - userId: Reference to the user who owns this session
+ * - expires: When the session expires (Unix timestamp)
+ *
+ * Auth.js manages session creation, validation, and cleanup.
+ */
+export const sessions = sqliteTable(
+  'sessions',
+  {
+    sessionToken: text('session_token').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expires: integer('expires', { mode: 'timestamp' }).notNull(),
+  },
+  (table) => ({
+    // Index on userId for finding all sessions for a user
+    userIdIdx: index('sessions_user_id_idx').on(table.userId),
+    // Index on expires for cleanup queries
+    expiresIdx: index('sessions_expires_idx').on(table.expires),
+  })
+);
+<% } -%>
+
+/**
+ * Sessions relations - defines relationship with users table
+ */
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, {
+    fields: [sessions.userId],
+    references: [users.id],
+  }),
+}));
+
+<% } -%>
+// Type exports for use throughout the application
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;

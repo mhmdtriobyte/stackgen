@@ -1,0 +1,99 @@
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Header } from "@/components/Header";
+<% if (authType === 'authjs') { -%>
+import { auth } from "@/lib/auth";
+<% } else { -%>
+import { validateRequest } from "@/lib/auth";
+<% } -%>
+
+export default async function DashboardPage() {
+<% if (authType === 'authjs') { -%>
+  const session = await auth();
+
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  const user = session.user;
+<% } else { -%>
+  const { user } = await validateRequest();
+
+  if (!user) {
+    redirect("/login");
+  }
+<% } -%>
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <main className="flex-1 container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
+
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">User Profile</h2>
+            <div className="space-y-2">
+              <p>
+                <span className="text-gray-500 dark:text-gray-400">Email:</span>{" "}
+                <span className="font-medium">{user.email}</span>
+              </p>
+<% if (authType === 'authjs') { -%>
+              {user.name && (
+                <p>
+                  <span className="text-gray-500 dark:text-gray-400">Name:</span>{" "}
+                  <span className="font-medium">{user.name}</span>
+                </p>
+              )}
+<% } -%>
+              <p>
+                <span className="text-gray-500 dark:text-gray-400">User ID:</span>{" "}
+                <span className="font-mono text-sm">{user.id}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-2">Quick Actions</h3>
+              <ul className="space-y-2">
+                <li>
+                  <Link
+                    href="/api/protected"
+                    className="text-blue-600 hover:underline"
+                    target="_blank"
+                  >
+                    Test Protected API
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/" className="text-blue-600 hover:underline">
+                    Back to Home
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-2">Application Info</h3>
+              <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                <li>Framework: Next.js 15</li>
+<% if (database === 'postgresql') { -%>
+                <li>Database: PostgreSQL</li>
+<% } else { -%>
+                <li>Database: SQLite</li>
+<% } -%>
+<% if (authType === 'authjs') { -%>
+                <li>Auth: Auth.js (NextAuth v5)</li>
+<% } else { -%>
+                <li>Auth: Lucia</li>
+<% } -%>
+                <li>ORM: Drizzle</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

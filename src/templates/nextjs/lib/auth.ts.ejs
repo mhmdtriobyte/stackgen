@@ -1,0 +1,195 @@
+<% if (authType === 'authjs') { -%>
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { db } from "@/lib/db";
+import { users, accounts, sessions, verificationTokens } from "@/lib/db/schema";
+import bcrypt from "bcryptjs";
+import { eq } from "drizzle-orm";
+import { z } from "zod";
+
+const credentialsSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+});
+
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  adapter: DrizzleAdapter(db, {
+    usersTable: users,
+    accountsTable: accounts,
+    sessionsTable: sessions,
+    verificationTokensTable: verificationTokens,
+  }),
+  session: {
+    strategy: "jwt",
+  },
+  pages: {
+    signIn: "/login",
+  },
+  providers: [
+    Credentials({
+      name: "credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        const parsed = credentialsSchema.safeParse(credentials);
+        if (!parsed.success) {
+          return null;
+        }
+
+        const { email, password } = parsed.data;
+
+        const [user] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, email))
+          .limit(1);
+
+        if (!user || !user.password) {
+          return null;
+        }
+
+        const isValid = await bcrypt.compare(password, user.password);
+        if (!isValid) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        };
+      },
+    }),
+  ],
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (token && session.user) {
+        session.user.id = token.id as string;
+      }
+      return session;
+    },
+  },
+});
+
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      email: string;
+      name?: string | null;
+    };
+  }
+}
+<% } else { -%>
+import { Lucia, TimeSpan } from "lucia";
+import { DrizzleSQLiteAdapter } from "@lucia-auth/adapter-drizzle";
+<% if (database === 'postgresql') { -%>
+import { DrizzlePostgreSQLAdapter } from "@lucia-auth/adapter-drizzle";
+<% } -%>
+import { db } from "@/lib/db";
+import { sessions, users } from "@/lib/db/schema";
+import { cookies } from "next/headers";
+import { cache } from "react";
+
+<% if (database === 'postgresql') { -%>
+const adapter = new DrizzlePostgreSQLAdapter(db, sessions, users);
+<% } else { -%>
+const adapter = new DrizzleSQLiteAdapter(db, sessions, users);
+<% } -%>
+
+export const lucia = new Lucia(adapter, {
+  sessionExpiresIn: new TimeSpan(30, "d"),
+  sessionCookie: {
+    name: "auth_session",
+    expires: false,
+    attributes: {
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    },
+  },
+  getUserAttributes: (attributes) => {
+    return {
+      email: attributes.email,
+    };
+  },
+});
+
+declare module "lucia" {
+  interface Register {
+    Lucia: typeof lucia;
+    DatabaseUserAttributes: {
+      email: string;
+    };
+  }
+}
+
+export const validateRequest = cache(async () => {
+  const cookieStore = await cookies();
+  const sessionId = cookieStore.get(lucia.sessionCookieName)?.value ?? null;
+
+  if (!sessionId) {
+    return { user: null, session: null };
+  }
+
+  const result = await lucia.validateSession(sessionId);
+
+  try {
+    if (result.session && result.session.fresh) {
+      const sessionCookie = lucia.createSessionCookie(result.session.id);
+      cookieStore.set(
+        sessionCookie.name,
+        sessionCookie.value,
+        sessionCookie.attributes
+      );
+    }
+    if (!result.session) {
+      const sessionCookie = lucia.createBlankSessionCookie();
+      cookieStore.set(
+        sessionCookie.name,
+        sessionCookie.value,
+        sessionCookie.attributes
+      );
+    }
+  } catch {
+    // Cookie setting might fail in edge runtime
+  }
+
+  return result;
+});
+
+export async function createSession(userId: string) {
+  const session = await lucia.createSession(userId, {});
+  const sessionCookie = lucia.createSessionCookie(session.id);
+  const cookieStore = await cookies();
+  cookieStore.set(
+    sessionCookie.name,
+    sessionCookie.value,
+    sessionCookie.attributes
+  );
+  return session;
+}
+
+export async function invalidateSession() {
+  const { session } = await validateRequest();
+  if (!session) {
+    return;
+  }
+  await lucia.invalidateSession(session.id);
+  const sessionCookie = lucia.createBlankSessionCookie();
+  const cookieStore = await cookies();
+  cookieStore.set(
+    sessionCookie.name,
+    sessionCookie.value,
+    sessionCookie.attributes
+  );
+}
+<% } -%>

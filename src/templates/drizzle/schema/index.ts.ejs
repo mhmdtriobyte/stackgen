@@ -1,0 +1,22 @@
+/**
+ * Database Schema Index
+ *
+ * Central export point for all database schemas.
+ * Generated for: <%- projectName %>
+ * Database: <%- database %>
+ */
+
+// Export all table schemas
+export * from './users';
+export * from './sessions';
+<% if (authType === 'authjs') { -%>
+export * from './accounts';
+export * from './verificationTokens';
+<% } -%>
+
+// Re-export relations if needed
+export { usersRelations } from './users';
+export { sessionsRelations } from './sessions';
+<% if (authType === 'authjs') { -%>
+export { accountsRelations } from './accounts';
+<% } -%>

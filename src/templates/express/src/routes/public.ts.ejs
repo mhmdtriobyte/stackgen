@@ -1,0 +1,48 @@
+import { Router, Request, Response } from 'express';
+
+/**
+ * Public API routes
+ * These routes do not require authentication
+ */
+const router = Router();
+
+/**
+ * GET /api/public/info
+ * Returns public application information
+ */
+router.get('/info', (_req: Request, res: Response) => {
+  res.json({
+    name: '<%= projectName %>',
+    version: '0.0.1',
+    description: 'A full-stack application built with Express and React',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+/**
+ * GET /api/public/status
+ * Returns application status and configuration
+ */
+router.get('/status', (_req: Request, res: Response) => {
+  res.json({
+    status: 'operational',
+    environment: process.env.NODE_ENV || 'development',
+    features: {
+      authentication: true,
+      database: '<%= database %>',
+    },
+  });
+});
+
+/**
+ * GET /api/public/ping
+ * Simple ping endpoint for health checks
+ */
+router.get('/ping', (_req: Request, res: Response) => {
+  res.json({
+    pong: true,
+    timestamp: Date.now(),
+  });
+});
+
+export { router as publicRouter };

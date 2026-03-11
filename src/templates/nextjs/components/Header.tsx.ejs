@@ -1,0 +1,57 @@
+import Link from "next/link";
+<% if (authType === 'authjs') { -%>
+import { auth } from "@/lib/auth";
+import { AuthButton } from "./AuthButton";
+<% } else { -%>
+import { validateRequest } from "@/lib/auth";
+import { AuthButton } from "./AuthButton";
+<% } -%>
+
+export async function Header() {
+<% if (authType === 'authjs') { -%>
+  const session = await auth();
+  const user = session?.user;
+<% } else { -%>
+  const { user } = await validateRequest();
+<% } -%>
+
+  return (
+    <header className="border-b border-gray-200 dark:border-gray-800">
+      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="flex items-center space-x-8">
+          <Link href="/" className="text-xl font-bold">
+            <%- projectName %>
+          </Link>
+          <nav className="hidden md:flex space-x-6">
+            <Link
+              href="/"
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+            >
+              Home
+            </Link>
+            {user && (
+              <Link
+                href="/dashboard"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+              >
+                Dashboard
+              </Link>
+            )}
+          </nav>
+        </div>
+        <div className="flex items-center space-x-4">
+          {user && (
+            <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:inline">
+              {user.email}
+            </span>
+          )}
+<% if (authType === 'authjs') { -%>
+          <AuthButton />
+<% } else { -%>
+          <AuthButton isAuthenticated={!!user} />
+<% } -%>
+        </div>
+      </div>
+    </header>
+  );
+}

@@ -1,0 +1,144 @@
+# ==============================================================================
+# Multi-stage Dockerfile for <%= projectName %>
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Stage 1: Dependencies
+# ------------------------------------------------------------------------------
+FROM node:<%= nodeVersion || '20' %>-alpine AS deps
+
+# Install system dependencies for native modules
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json ./
+<% if (packageManager === 'pnpm') { -%>
+COPY pnpm-lock.yaml ./
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+<% } else if (packageManager === 'yarn') { -%>
+COPY yarn.lock ./
+
+# Install dependencies
+RUN yarn install --frozen-lockfile
+<% } else if (packageManager === 'bun') { -%>
+COPY bun.lockb ./
+
+# Install bun
+RUN npm install -g bun
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+<% } else { -%>
+COPY package-lock.json ./
+
+# Install dependencies
+RUN npm ci
+<% } -%>
+
+# ------------------------------------------------------------------------------
+# Stage 2: Builder
+# ------------------------------------------------------------------------------
+FROM node:<%= nodeVersion || '20' %>-alpine AS builder
+
+WORKDIR /app
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+<% if (packageManager === 'pnpm') { -%>
+# Install pnpm for build
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+<% } -%>
+# Set production environment for build optimizations
+ENV NODE_ENV=production
+
+<% if (orm === 'prisma') { -%>
+# Generate Prisma client
+RUN <%= packageManager === 'pnpm' ? 'pnpm' : packageManager === 'yarn' ? 'yarn' : 'npx' %> prisma generate
+
+<% } -%>
+# Build the application
+<% if (packageManager === 'pnpm') { -%>
+RUN pnpm build
+<% } else if (packageManager === 'yarn') { -%>
+RUN yarn build
+<% } else if (packageManager === 'bun') { -%>
+RUN bun run build
+<% } else { -%>
+RUN npm run build
+<% } -%>
+
+<% if (packageManager === 'pnpm') { -%>
+# Prune dev dependencies
+RUN pnpm prune --prod
+<% } else if (packageManager === 'yarn') { -%>
+# Remove dev dependencies
+RUN yarn install --production --ignore-scripts
+<% } else if (packageManager !== 'bun') { -%>
+# Prune dev dependencies
+RUN npm prune --production
+<% } -%>
+
+# ------------------------------------------------------------------------------
+# Stage 3: Production Runner
+# ------------------------------------------------------------------------------
+FROM node:<%= nodeVersion || '20' %>-alpine AS runner
+
+WORKDIR /app
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 appuser
+
+# Set production environment
+ENV NODE_ENV=production
+ENV PORT=<%= port || 3000 %>
+
+<% if (frontend === 'nextjs') { -%>
+# Copy Next.js specific files
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=appuser:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=appuser:nodejs /app/.next/static ./.next/static
+<% } else { -%>
+# Copy built application
+COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+<% if (orm === 'prisma') { -%>
+
+# Copy Prisma schema and migrations
+COPY --from=builder /app/prisma ./prisma
+<% } -%>
+<% if (orm === 'drizzle') { -%>
+
+# Copy Drizzle migrations
+COPY --from=builder /app/drizzle ./drizzle
+<% } -%>
+<% } -%>
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE <%= port || 3000 %>
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:<%= port || 3000 %>/health || exit 1
+
+<% if (frontend === 'nextjs') { -%>
+# Start the application
+CMD ["node", "server.js"]
+<% } else { -%>
+# Start the application
+CMD ["node", "dist/index.js"]
+<% } -%>

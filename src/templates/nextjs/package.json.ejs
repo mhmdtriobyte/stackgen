@@ -1,0 +1,58 @@
+{
+  "name": "<%- projectName %>",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "drizzle-orm": "^0.38.0",
+<% if (database === 'postgresql') { -%>
+    "postgres": "^3.4.5",
+<% } else { -%>
+    "better-sqlite3": "^11.7.0",
+<% } -%>
+<% if (authType === 'authjs') { -%>
+    "next-auth": "^5.0.0-beta.25",
+    "@auth/drizzle-adapter": "^1.7.4",
+    "bcryptjs": "^2.4.3",
+<% } else { -%>
+    "lucia": "^3.2.2",
+    "@lucia-auth/adapter-drizzle": "^1.1.0",
+    "arctic": "^2.2.2",
+    "oslo": "^1.2.1",
+<% } -%>
+    "zod": "^3.24.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+<% if (database === 'sqlite') { -%>
+    "@types/better-sqlite3": "^7.6.12",
+<% } -%>
+<% if (authType === 'authjs') { -%>
+    "@types/bcryptjs": "^2.4.6",
+<% } -%>
+    "typescript": "^5.7.0",
+    "drizzle-kit": "^0.30.0",
+    "tailwindcss": "^4.0.0",
+    "@tailwindcss/postcss": "^4.0.0",
+    "postcss": "^8.4.49",
+    "eslint": "^9.17.0",
+    "eslint-config-next": "^15.1.0",
+    "@eslint/eslintrc": "^3.2.0"
+  }
+}

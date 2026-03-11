@@ -1,0 +1,145 @@
+import { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { api } from '../lib/api';
+
+/**
+ * User type representing authenticated user data
+ */
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+}
+
+/**
+ * Authentication context value type
+ */
+export interface AuthContextValue {
+  user: User | null;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, name?: string) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshSession: () => Promise<void>;
+}
+
+/**
+ * Auth context with default values
+ */
+export const AuthContext = createContext<AuthContextValue>({
+  user: null,
+  isLoading: true,
+  login: async () => {},
+  register: async () => {},
+  logout: async () => {},
+  refreshSession: async () => {},
+});
+
+/**
+ * Auth provider props
+ */
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+/**
+ * Authentication Provider component
+ * Manages user authentication state and provides auth methods
+ */
+export function AuthProvider({ children }: AuthProviderProps) {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  /**
+   * Refresh the current session
+   * Fetches user data from the session endpoint
+   */
+  const refreshSession = useCallback(async () => {
+    try {
+      const response = await api.get<{ user: User | null }>('/api/auth/session');
+      setUser(response.data.user);
+    } catch (error) {
+      // Session invalid or expired
+      setUser(null);
+    }
+  }, []);
+
+  /**
+   * Initialize auth state on mount
+   */
+  useEffect(() => {
+    const initAuth = async () => {
+      setIsLoading(true);
+      await refreshSession();
+      setIsLoading(false);
+    };
+
+    initAuth();
+  }, [refreshSession]);
+
+  /**
+   * Login with email and password
+   */
+  const login = useCallback(async (email: string, password: string) => {
+    try {
+      const response = await api.post<{ user: User }>('/api/auth/login', {
+        email,
+        password,
+      });
+      setUser(response.data.user);
+    } catch (error) {
+      // Re-throw with user-friendly message
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Login failed. Please check your credentials.');
+    }
+  }, []);
+
+  /**
+   * Register a new user account
+   */
+  const register = useCallback(async (email: string, password: string, name?: string) => {
+    try {
+      const response = await api.post<{ user: User }>('/api/auth/register', {
+        email,
+        password,
+        name,
+      });
+      setUser(response.data.user);
+    } catch (error) {
+      // Re-throw with user-friendly message
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Registration failed. Please try again.');
+    }
+  }, []);
+
+  /**
+   * Logout the current user
+   */
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/api/auth/logout');
+    } finally {
+      // Always clear user state, even if API call fails
+      setUser(null);
+    }
+  }, []);
+
+  // Context value
+  const value: AuthContextValue = {
+    user,
+    isLoading,
+    login,
+    register,
+    logout,
+    refreshSession,
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}

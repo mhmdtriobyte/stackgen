@@ -1,0 +1,88 @@
+/**
+ * Verification Tokens Table Schema (Auth.js / NextAuth)
+ *
+ * Stores tokens for email verification and passwordless authentication.
+ * Required for Auth.js (NextAuth) email-based authentication flows.
+ *
+ * Generated for: <%- projectName %>
+ * Database: <%- database %>
+ */
+
+<% if (database === 'postgresql') { -%>
+import {
+  pgTable,
+  text,
+  timestamp,
+  primaryKey,
+} from 'drizzle-orm/pg-core';
+
+/**
+ * Verification tokens table - Email verification and magic link tokens
+ *
+ * This table follows the Auth.js adapter schema specification.
+ * Tokens are used for:
+ * - Email verification when a user signs up
+ * - Magic link / passwordless authentication
+ * - Password reset flows
+ *
+ * Fields:
+ * - identifier: Usually the user's email address
+ * - token: The unique verification token (hashed)
+ * - expires: When the token expires
+ *
+ * The composite primary key prevents duplicate tokens per identifier.
+ */
+export const verificationTokens = pgTable(
+  'verification_tokens',
+  {
+    identifier: text('identifier').notNull(),
+    token: text('token').notNull(),
+    expires: timestamp('expires', { mode: 'date' }).notNull(),
+  },
+  (table) => ({
+    // Composite primary key on identifier + token
+    pk: primaryKey({ columns: [table.identifier, table.token] }),
+  })
+);
+
+<% } else if (database === 'sqlite') { -%>
+import {
+  sqliteTable,
+  text,
+  integer,
+  primaryKey,
+} from 'drizzle-orm/sqlite-core';
+
+/**
+ * Verification tokens table - Email verification and magic link tokens
+ *
+ * This table follows the Auth.js adapter schema specification.
+ * Tokens are used for:
+ * - Email verification when a user signs up
+ * - Magic link / passwordless authentication
+ * - Password reset flows
+ *
+ * Fields:
+ * - identifier: Usually the user's email address
+ * - token: The unique verification token (hashed)
+ * - expires: When the token expires (Unix timestamp)
+ *
+ * The composite primary key prevents duplicate tokens per identifier.
+ */
+export const verificationTokens = sqliteTable(
+  'verification_tokens',
+  {
+    identifier: text('identifier').notNull(),
+    token: text('token').notNull(),
+    expires: integer('expires', { mode: 'timestamp' }).notNull(),
+  },
+  (table) => ({
+    // Composite primary key on identifier + token
+    pk: primaryKey({ columns: [table.identifier, table.token] }),
+  })
+);
+
+<% } -%>
+// Type exports for use throughout the application
+export type VerificationToken = typeof verificationTokens.$inferSelect;
+export type NewVerificationToken = typeof verificationTokens.$inferInsert;

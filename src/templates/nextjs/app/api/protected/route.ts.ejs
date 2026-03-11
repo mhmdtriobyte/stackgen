@@ -1,0 +1,89 @@
+import { NextResponse } from "next/server";
+<% if (authType === 'authjs') { -%>
+import { auth } from "@/lib/auth";
+<% } else { -%>
+import { validateRequest } from "@/lib/auth";
+<% } -%>
+
+export async function GET() {
+<% if (authType === 'authjs') { -%>
+  const session = await auth();
+
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
+  return NextResponse.json({
+    message: "This is a protected API endpoint",
+    user: {
+      id: session.user.id,
+      email: session.user.email,
+      name: session.user.name,
+    },
+    timestamp: new Date().toISOString(),
+  });
+<% } else { -%>
+  const { user } = await validateRequest();
+
+  if (!user) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+
+  return NextResponse.json({
+    message: "This is a protected API endpoint",
+    user: {
+      id: user.id,
+      email: user.email,
+    },
+    timestamp: new Date().toISOString(),
+  });
+<% } -%>
+}
+
+export async function POST(request: Request) {
+<% if (authType === 'authjs') { -%>
+  const session = await auth();
+
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+<% } else { -%>
+  const { user } = await validateRequest();
+
+  if (!user) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+<% } -%>
+
+  try {
+    const body = await request.json();
+
+    return NextResponse.json({
+      message: "Protected data received",
+      data: body,
+<% if (authType === 'authjs') { -%>
+      userId: session.user.id,
+<% } else { -%>
+      userId: user.id,
+<% } -%>
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 }
+    );
+  }
+}

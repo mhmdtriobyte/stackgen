@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.turbo/
+
+# Generated files
+*.min.js
+*.min.css
+*.bundle.js
+*.generated.*
+
+# Package manager files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lockb
+
+# IDE and editor
+.idea/
+.vscode/
+*.sublime-*
+
+# Coverage and test reports
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+
+# Misc
+*.log
+.DS_Store
+Thumbs.db
+
+# Environment files (don't format these)
+.env*
+!.env.example
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated API documentation
+docs/api/
+api-docs/
+
+# Prisma generated
+prisma/generated/
+<% if (orm === 'drizzle') { -%>
+
+# Drizzle generated
+drizzle/meta/
+<% } -%>

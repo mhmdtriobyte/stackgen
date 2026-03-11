@@ -1,0 +1,186 @@
+/**
+ * Database Connection
+ *
+ * Initializes and exports the Drizzle ORM database instance.
+ * Import this module to access the database throughout the application.
+ *
+ * Generated for: <%- projectName %>
+ * Database: <%- database %>
+ */
+
+<% if (database === 'postgresql') { -%>
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import * as schema from './schema';
+
+/**
+ * PostgreSQL connection configuration
+ *
+ * Connection string format:
+ * postgresql://[user]:[password]@[host]:[port]/[database]?[options]
+ *
+ * Example:
+ * DATABASE_URL=postgresql://postgres:password@localhost:5432/myapp
+ */
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error(
+    'DATABASE_URL environment variable is not set.\n' +
+    'Please add it to your .env file:\n' +
+    'DATABASE_URL=postgresql://user:password@localhost:5432/dbname'
+  );
+}
+
+/**
+ * PostgreSQL client configuration
+ *
+ * Options:
+ * - max: Maximum number of connections in the pool (default: 10)
+ * - idle_timeout: Close connections after this many seconds of inactivity
+ * - connect_timeout: Timeout for establishing a connection
+ * - prepare: Use prepared statements (recommended for security)
+ */
+const queryClient = postgres(connectionString, {
+  max: 10,
+  idle_timeout: 20,
+  connect_timeout: 10,
+  prepare: true,
+});
+
+/**
+ * Drizzle ORM instance with typed schema
+ *
+ * Usage:
+ * ```typescript
+ * import { db } from '@/db';
+ * import { users } from '@/db/schema';
+ *
+ * // Select all users
+ * const allUsers = await db.select().from(users);
+ *
+ * // Insert a user
+ * await db.insert(users).values({ email: 'test@example.com', name: 'Test' });
+ *
+ * // Query with relations
+ * const usersWithSessions = await db.query.users.findMany({
+ *   with: { sessions: true }
+ * });
+ * ```
+ */
+export const db = drizzle(queryClient, {
+  schema,
+  logger: process.env.NODE_ENV === 'development',
+});
+
+/**
+ * Export the underlying postgres client for advanced usage
+ * (e.g., raw queries, transactions, listen/notify)
+ */
+export const sql = queryClient;
+
+<% } else if (database === 'sqlite') { -%>
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import Database from 'better-sqlite3';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as schema from './schema';
+
+/**
+ * SQLite database file path
+ *
+ * Default: ./data/<%- projectName %>.db
+ * Override with DATABASE_PATH environment variable
+ */
+const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', '<%- projectName %>.db');
+
+/**
+ * Ensure the data directory exists
+ */
+const dataDir = path.dirname(dbPath);
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+/**
+ * SQLite database configuration
+ *
+ * Options:
+ * - verbose: Log all SQL queries (useful for debugging)
+ * - fileMustExist: If true, throw error if database doesn't exist
+ *
+ * WAL mode is enabled for better concurrent read/write performance
+ */
+const sqlite = new Database(dbPath, {
+  verbose: process.env.NODE_ENV === 'development'
+    ? (message) => console.log('[SQL]', message)
+    : undefined,
+});
+
+// Enable WAL mode for better performance
+sqlite.pragma('journal_mode = WAL');
+
+// Enable foreign keys (not enabled by default in SQLite)
+sqlite.pragma('foreign_keys = ON');
+
+/**
+ * Drizzle ORM instance with typed schema
+ *
+ * Usage:
+ * ```typescript
+ * import { db } from '@/db';
+ * import { users } from '@/db/schema';
+ *
+ * // Select all users
+ * const allUsers = db.select().from(users).all();
+ *
+ * // Insert a user
+ * db.insert(users).values({ email: 'test@example.com', name: 'Test' }).run();
+ *
+ * // Query with relations
+ * const usersWithSessions = db.query.users.findMany({
+ *   with: { sessions: true }
+ * });
+ * ```
+ */
+export const db = drizzle(sqlite, {
+  schema,
+  logger: process.env.NODE_ENV === 'development',
+});
+
+/**
+ * Export the underlying better-sqlite3 instance for advanced usage
+ * (e.g., raw queries, backup, custom functions)
+ */
+export const sqliteDb = sqlite;
+
+/**
+ * Graceful shutdown handler
+ * Ensures database is properly closed when the process exits
+ */
+function closeDatabase(): void {
+  try {
+    sqlite.close();
+    console.log('Database connection closed');
+  } catch (error) {
+    console.error('Error closing database:', error);
+  }
+}
+
+// Register shutdown handlers
+process.on('exit', closeDatabase);
+process.on('SIGINT', () => {
+  closeDatabase();
+  process.exit(0);
+});
+process.on('SIGTERM', () => {
+  closeDatabase();
+  process.exit(0);
+});
+
+<% } -%>
+// Re-export schema for convenience
+export * from './schema';
+
+// Export database type for use in other modules
+export type Database = typeof db;

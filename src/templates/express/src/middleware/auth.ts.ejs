@@ -1,0 +1,235 @@
+import { Request, Response, NextFunction } from 'express';
+<% if (authType === 'lucia') { -%>
+import { lucia } from '../lib/auth.js';
+import type { User } from 'lucia';
+<% } else { -%>
+import { db, users } from '../lib/db.js';
+import { eq } from 'drizzle-orm';
+<% } -%>
+
+/**
+ * User type for authenticated requests
+ */
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string | null;
+  createdAt?: Date;
+}
+
+/**
+ * Extended Request type with authenticated user
+ */
+export interface AuthenticatedRequest extends Request {
+  user?: AuthUser;
+}
+
+<% if (authType === 'lucia') { -%>
+/**
+ * Authentication middleware using Lucia
+ * Validates session cookie and attaches user to request
+ */
+export async function authMiddleware(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    // Read session ID from cookie
+    const sessionId = lucia.readSessionCookie(req.headers.cookie ?? '');
+
+    if (!sessionId) {
+      res.status(401).json({
+        error: 'Authentication required',
+        message: 'Please log in to access this resource',
+      });
+      return;
+    }
+
+    // Validate session
+    const { session, user } = await lucia.validateSession(sessionId);
+
+    if (!session) {
+      // Invalid session, clear cookie
+      const blankCookie = lucia.createBlankSessionCookie();
+      res.cookie(blankCookie.name, blankCookie.value, blankCookie.attributes);
+
+      res.status(401).json({
+        error: 'Session expired',
+        message: 'Your session has expired. Please log in again.',
+      });
+      return;
+    }
+
+    // Refresh session cookie if needed
+    if (session.fresh) {
+      const sessionCookie = lucia.createSessionCookie(session.id);
+      res.cookie(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
+    }
+
+    // Attach user to request
+    req.user = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    };
+
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(500).json({
+      error: 'Authentication error',
+      message: 'An error occurred while validating your session',
+    });
+  }
+}
+
+/**
+ * Optional authentication middleware
+ * Attaches user to request if valid session exists, but allows unauthenticated access
+ */
+export async function optionalAuthMiddleware(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const sessionId = lucia.readSessionCookie(req.headers.cookie ?? '');
+
+    if (sessionId) {
+      const { session, user } = await lucia.validateSession(sessionId);
+
+      if (session) {
+        // Refresh session cookie if needed
+        if (session.fresh) {
+          const sessionCookie = lucia.createSessionCookie(session.id);
+          res.cookie(sessionCookie.name, sessionCookie.value, sessionCookie.attributes);
+        }
+
+        req.user = {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+        };
+      }
+    }
+
+    next();
+  } catch (error) {
+    // Don't block request on error, just continue without user
+    console.error('Optional auth middleware error:', error);
+    next();
+  }
+}
+<% } else { -%>
+/**
+ * Authentication middleware using Express Session
+ * Validates session and attaches user to request
+ */
+export async function authMiddleware(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.session.userId;
+
+    if (!userId) {
+      res.status(401).json({
+        error: 'Authentication required',
+        message: 'Please log in to access this resource',
+      });
+      return;
+    }
+
+    // Get user from database
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      // User not found, clear session
+      req.session.destroy(() => {});
+
+      res.status(401).json({
+        error: 'Session invalid',
+        message: 'Your session is invalid. Please log in again.',
+      });
+      return;
+    }
+
+    // Attach user to request
+    req.user = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      createdAt: user.createdAt,
+    };
+
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(500).json({
+      error: 'Authentication error',
+      message: 'An error occurred while validating your session',
+    });
+  }
+}
+
+/**
+ * Optional authentication middleware
+ * Attaches user to request if valid session exists, but allows unauthenticated access
+ */
+export async function optionalAuthMiddleware(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.session.userId;
+
+    if (userId) {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      if (user) {
+        req.user = {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          createdAt: user.createdAt,
+        };
+      }
+    }
+
+    next();
+  } catch (error) {
+    // Don't block request on error, just continue without user
+    console.error('Optional auth middleware error:', error);
+    next();
+  }
+}
+<% } -%>
+
+/**
+ * Role-based authorization middleware factory
+ * Creates middleware that checks if user has required role
+ */
+export function requireRole(allowedRoles: string[]) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'Authentication required',
+      });
+    }
+
+    // TODO: Implement role checking when roles are added to user model
+    // For now, allow all authenticated users
+    next();
+  };
+}

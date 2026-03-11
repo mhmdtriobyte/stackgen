@@ -1,0 +1,113 @@
+import { drizzle } from 'drizzle-orm/<%- database === 'postgresql' ? 'postgres-js' : 'better-sqlite3' %>';
+<% if (database === 'postgresql') { -%>
+import postgres from 'postgres';
+<% } else { -%>
+import Database from 'better-sqlite3';
+<% } -%>
+import { pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core';
+import { sqliteTable, text as sqliteText, integer } from 'drizzle-orm/sqlite-core';
+import 'dotenv/config';
+
+/**
+ * Database connection and schema definitions
+ */
+
+<% if (database === 'postgresql') { -%>
+// PostgreSQL connection
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('DATABASE_URL environment variable is required');
+}
+
+const client = postgres(connectionString);
+export const db = drizzle(client);
+
+// User table schema (PostgreSQL)
+export const users = pgTable('users', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  hashedPassword: varchar('hashed_password', { length: 255 }),
+  name: varchar('name', { length: 255 }),
+  emailVerified: timestamp('email_verified', { mode: 'date' }),
+  image: varchar('image', { length: 255 }),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+});
+
+// Session table for Lucia auth (PostgreSQL)
+export const sessions = pgTable('sessions', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 })
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at', { mode: 'date' }).notNull(),
+});
+
+// Account table for OAuth providers (PostgreSQL)
+export const accounts = pgTable('accounts', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 })
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  type: varchar('type', { length: 255 }).notNull(),
+  provider: varchar('provider', { length: 255 }).notNull(),
+  providerAccountId: varchar('provider_account_id', { length: 255 }).notNull(),
+  refreshToken: text('refresh_token'),
+  accessToken: text('access_token'),
+  expiresAt: integer('expires_at'),
+  tokenType: varchar('token_type', { length: 255 }),
+  scope: varchar('scope', { length: 255 }),
+  idToken: text('id_token'),
+  sessionState: varchar('session_state', { length: 255 }),
+});
+<% } else { -%>
+// SQLite connection
+const sqlite = new Database(process.env.DATABASE_URL || './sqlite.db');
+export const db = drizzle(sqlite);
+
+// User table schema (SQLite)
+export const users = sqliteTable('users', {
+  id: sqliteText('id').primaryKey(),
+  email: sqliteText('email').notNull().unique(),
+  hashedPassword: sqliteText('hashed_password'),
+  name: sqliteText('name'),
+  emailVerified: integer('email_verified', { mode: 'timestamp' }),
+  image: sqliteText('image'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+});
+
+// Session table for Lucia auth (SQLite)
+export const sessions = sqliteTable('sessions', {
+  id: sqliteText('id').primaryKey(),
+  userId: sqliteText('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Account table for OAuth providers (SQLite)
+export const accounts = sqliteTable('accounts', {
+  id: sqliteText('id').primaryKey(),
+  userId: sqliteText('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  type: sqliteText('type').notNull(),
+  provider: sqliteText('provider').notNull(),
+  providerAccountId: sqliteText('provider_account_id').notNull(),
+  refreshToken: sqliteText('refresh_token'),
+  accessToken: sqliteText('access_token'),
+  expiresAt: integer('expires_at'),
+  tokenType: sqliteText('token_type'),
+  scope: sqliteText('scope'),
+  idToken: sqliteText('id_token'),
+  sessionState: sqliteText('session_state'),
+});
+<% } -%>
+
+// Type exports for use in other modules
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;

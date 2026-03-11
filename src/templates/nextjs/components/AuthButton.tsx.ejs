@@ -1,0 +1,100 @@
+"use client";
+
+<% if (authType === 'authjs') { -%>
+import { signIn, signOut, useSession } from "next-auth/react";
+
+export function AuthButton() {
+  const { data: session, status } = useSession();
+
+  if (status === "loading") {
+    return (
+      <button
+        disabled
+        className="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-md"
+      >
+        Loading...
+      </button>
+    );
+  }
+
+  if (session?.user) {
+    return (
+      <button
+        onClick={() => signOut({ callbackUrl: "/" })}
+        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
+      >
+        Sign Out
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => signIn()}
+      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+    >
+      Sign In
+    </button>
+  );
+}
+<% } else { -%>
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+
+interface AuthButtonProps {
+  isAuthenticated: boolean;
+}
+
+export function AuthButton({ isAuthenticated }: AuthButtonProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  const handleSignOut = async () => {
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+
+      if (response.ok) {
+        startTransition(() => {
+          router.push("/");
+          router.refresh();
+        });
+      }
+    } catch (error) {
+      console.error("Failed to sign out:", error);
+    }
+  };
+
+  if (isPending) {
+    return (
+      <button
+        disabled
+        className="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-md"
+      >
+        Loading...
+      </button>
+    );
+  }
+
+  if (isAuthenticated) {
+    return (
+      <button
+        onClick={handleSignOut}
+        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors"
+      >
+        Sign Out
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => router.push("/login")}
+      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
+    >
+      Sign In
+    </button>
+  );
+}
+<% } -%>

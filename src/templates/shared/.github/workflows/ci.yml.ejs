@@ -1,0 +1,387 @@
+# ==============================================================================
+# GitHub Actions CI Workflow for <%= projectName %>
+# ==============================================================================
+# Runs on every push and pull request to ensure code quality
+# ==============================================================================
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '<%= nodeVersion || '20' %>'
+<% if (packageManager === 'pnpm') { -%>
+  PNPM_VERSION: '9'
+<% } -%>
+
+jobs:
+  # ----------------------------------------------------------------------------
+  # Lint and Type Check
+  # ----------------------------------------------------------------------------
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+<% if (packageManager === 'pnpm') { -%>
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+<% } else if (packageManager === 'yarn') { -%>
+      - name: Get yarn cache directory
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+
+      - name: Setup yarn cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+<% } else if (packageManager === 'bun') { -%>
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+<% } else { -%>
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install dependencies
+        run: npm ci
+<% } -%>
+
+      - name: Run linter
+<% if (packageManager === 'pnpm') { -%>
+        run: pnpm lint
+<% } else if (packageManager === 'yarn') { -%>
+        run: yarn lint
+<% } else if (packageManager === 'bun') { -%>
+        run: bun run lint
+<% } else { -%>
+        run: npm run lint
+<% } -%>
+
+      - name: Run type check
+<% if (packageManager === 'pnpm') { -%>
+        run: pnpm type-check
+<% } else if (packageManager === 'yarn') { -%>
+        run: yarn type-check
+<% } else if (packageManager === 'bun') { -%>
+        run: bun run type-check
+<% } else { -%>
+        run: npm run type-check
+<% } -%>
+
+  # ----------------------------------------------------------------------------
+  # Test
+  # ----------------------------------------------------------------------------
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint
+<% if (database === 'postgresql') { -%>
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+<% } else if (database === 'mysql') { -%>
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+<% } -%>
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+<% if (packageManager === 'pnpm') { -%>
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+<% } else if (packageManager === 'yarn') { -%>
+      - name: Get yarn cache directory
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+
+      - name: Setup yarn cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+<% } else if (packageManager === 'bun') { -%>
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+<% } else { -%>
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install dependencies
+        run: npm ci
+<% } -%>
+
+<% if (orm === 'prisma') { -%>
+      - name: Generate Prisma client
+<% if (packageManager === 'pnpm') { -%>
+        run: pnpm prisma generate
+<% } else if (packageManager === 'yarn') { -%>
+        run: yarn prisma generate
+<% } else if (packageManager === 'bun') { -%>
+        run: bunx prisma generate
+<% } else { -%>
+        run: npx prisma generate
+<% } -%>
+
+<% } -%>
+      - name: Run tests
+<% if (packageManager === 'pnpm') { -%>
+        run: pnpm test
+<% } else if (packageManager === 'yarn') { -%>
+        run: yarn test
+<% } else if (packageManager === 'bun') { -%>
+        run: bun test
+<% } else { -%>
+        run: npm test
+<% } -%>
+        env:
+<% if (database === 'postgresql') { -%>
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test
+<% } else if (database === 'mysql') { -%>
+          DATABASE_URL: mysql://root:password@localhost:3306/test
+<% } else if (database === 'sqlite') { -%>
+          DATABASE_URL: file:./test.db
+<% } -%>
+<% if (auth && auth !== 'none') { -%>
+          AUTH_SECRET: test-secret-key-at-least-32-chars-long
+<% } -%>
+
+  # ----------------------------------------------------------------------------
+  # Build
+  # ----------------------------------------------------------------------------
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+<% if (packageManager === 'pnpm') { -%>
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+<% } else if (packageManager === 'yarn') { -%>
+      - name: Get yarn cache directory
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+
+      - name: Setup yarn cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+<% } else if (packageManager === 'bun') { -%>
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+<% } else { -%>
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install dependencies
+        run: npm ci
+<% } -%>
+
+<% if (orm === 'prisma') { -%>
+      - name: Generate Prisma client
+<% if (packageManager === 'pnpm') { -%>
+        run: pnpm prisma generate
+<% } else if (packageManager === 'yarn') { -%>
+        run: yarn prisma generate
+<% } else if (packageManager === 'bun') { -%>
+        run: bunx prisma generate
+<% } else { -%>
+        run: npx prisma generate
+<% } -%>
+
+<% } -%>
+      - name: Build project
+<% if (packageManager === 'pnpm') { -%>
+        run: pnpm build
+<% } else if (packageManager === 'yarn') { -%>
+        run: yarn build
+<% } else if (packageManager === 'bun') { -%>
+        run: bun run build
+<% } else { -%>
+        run: npm run build
+<% } -%>
+        env:
+<% if (database === 'postgresql') { -%>
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/<%= projectName.toLowerCase().replace(/[^a-z0-9]/g, '_') %>
+<% } else if (database === 'mysql') { -%>
+          DATABASE_URL: mysql://root:password@localhost:3306/<%= projectName.toLowerCase().replace(/[^a-z0-9]/g, '_') %>
+<% } else if (database === 'sqlite') { -%>
+          DATABASE_URL: file:./prod.db
+<% } -%>
+<% if (auth && auth !== 'none') { -%>
+          AUTH_SECRET: build-secret-key-at-least-32-chars-long
+<% } -%>
+
+<% if (frontend === 'nextjs') { -%>
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: .next
+          retention-days: 7
+<% } else { -%>
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: dist
+          retention-days: 7
+<% } -%>

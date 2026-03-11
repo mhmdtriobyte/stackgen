@@ -1,0 +1,54 @@
+/** @type {import("prettier").Config} */
+const config = {
+  // General formatting
+  semi: true,
+  singleQuote: true,
+  tabWidth: 2,
+  useTabs: false,
+  trailingComma: 'es5',
+  bracketSpacing: true,
+  bracketSameLine: false,
+  arrowParens: 'always',
+  endOfLine: 'lf',
+  printWidth: 100,
+
+  // Quote props only when required
+  quoteProps: 'as-needed',
+
+  // JSX specific
+  jsxSingleQuote: false,
+
+<% if (frontend && frontend !== 'none') { -%>
+  // Tailwind CSS plugin for automatic class sorting
+  plugins: ['prettier-plugin-tailwindcss'],
+
+  // Tailwind configuration
+  tailwindConfig: './tailwind.config.ts',
+  tailwindFunctions: ['cn', 'clsx', 'cva'],
+<% } -%>
+
+  // File-specific overrides
+  overrides: [
+    {
+      files: '*.json',
+      options: {
+        tabWidth: 2,
+      },
+    },
+    {
+      files: '*.md',
+      options: {
+        proseWrap: 'always',
+      },
+    },
+    {
+      files: ['*.yml', '*.yaml'],
+      options: {
+        tabWidth: 2,
+        singleQuote: false,
+      },
+    },
+  ],
+};
+
+export default config;

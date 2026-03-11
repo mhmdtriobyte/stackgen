@@ -1,0 +1,35 @@
+import type { Metadata } from "next";
+import "./globals.css";
+<% if (authType === 'authjs') { -%>
+import { SessionProvider } from "next-auth/react";
+import { auth } from "@/lib/auth";
+<% } -%>
+
+export const metadata: Metadata = {
+  title: "<%- projectName %>",
+  description: "Generated with StackGen - Next.js 15 Full Stack Application",
+};
+
+export default async function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+<% if (authType === 'authjs') { -%>
+  const session = await auth();
+
+<% } -%>
+  return (
+    <html lang="en">
+      <body className="antialiased min-h-screen bg-background text-foreground">
+<% if (authType === 'authjs') { -%>
+        <SessionProvider session={session}>
+          {children}
+        </SessionProvider>
+<% } else { -%>
+        {children}
+<% } -%>
+      </body>
+    </html>
+  );
+}

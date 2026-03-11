@@ -1,0 +1,174 @@
+/**
+ * Database Seed Script
+ *
+ * Creates initial data for development and testing.
+ * Run with: npx tsx src/db/seed.ts
+ *
+ * Generated for: <%- projectName %>
+ * Database: <%- database %>
+ */
+
+import * as dotenv from 'dotenv';
+import * as bcrypt from 'bcrypt';
+import { eq } from 'drizzle-orm';
+import { db } from './index';
+import { users, type NewUser } from './schema/users';
+
+// Load environment variables
+dotenv.config();
+
+// Configuration
+const BCRYPT_ROUNDS = 12;
+
+/**
+ * Seed users to be created
+ * Modify this array to add more seed users
+ */
+const seedUsers: Array<{
+  email: string;
+  password: string;
+  name: string;
+}> = [
+  {
+    email: 'admin@example.com',
+    password: 'admin123!',
+    name: 'Admin User',
+  },
+  {
+    email: 'user@example.com',
+    password: 'user123!',
+    name: 'Test User',
+  },
+];
+
+/**
+ * Hash a password using bcrypt
+ */
+async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, BCRYPT_ROUNDS);
+}
+
+/**
+ * Check if a user already exists by email
+ */
+async function userExists(email: string): Promise<boolean> {
+  const existing = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  return existing.length > 0;
+}
+
+/**
+ * Create a user if they don't already exist (idempotent)
+ */
+async function createUserIfNotExists(userData: {
+  email: string;
+  password: string;
+  name: string;
+}): Promise<{ created: boolean; email: string }> {
+  const exists = await userExists(userData.email);
+
+  if (exists) {
+    console.log(`   ⏭️  User already exists: ${userData.email}`);
+    return { created: false, email: userData.email };
+  }
+
+  const passwordHash = await hashPassword(userData.password);
+
+  const newUser: NewUser = {
+    email: userData.email,
+    passwordHash,
+    name: userData.name,
+<% if (database === 'postgresql') { -%>
+    emailVerified: new Date(),
+<% } else { -%>
+    emailVerified: new Date(),
+<% } -%>
+  };
+
+  await db.insert(users).values(newUser);
+
+  console.log(`   ✅ Created user: ${userData.email}`);
+  return { created: true, email: userData.email };
+}
+
+/**
+ * Main seed function
+ */
+async function seed(): Promise<void> {
+  console.log('🌱 Starting database seed...\n');
+  console.log('📋 Seed users to process:', seedUsers.length);
+  console.log('');
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const userData of seedUsers) {
+    try {
+      const result = await createUserIfNotExists(userData);
+      if (result.created) {
+        created++;
+      } else {
+        skipped++;
+      }
+    } catch (error) {
+      console.error(`   ❌ Failed to create user: ${userData.email}`);
+      if (error instanceof Error) {
+        console.error(`      Error: ${error.message}`);
+      }
+    }
+  }
+
+  console.log('');
+  console.log('📊 Seed Summary:');
+  console.log(`   Created: ${created}`);
+  console.log(`   Skipped (already exist): ${skipped}`);
+  console.log('');
+
+  if (created > 0) {
+    console.log('🔐 Default credentials:');
+    for (const user of seedUsers) {
+      console.log(`   Email: ${user.email}`);
+      console.log(`   Password: ${user.password}`);
+      console.log('');
+    }
+    console.log('⚠️  Remember to change these passwords in production!');
+  }
+
+  console.log('');
+  console.log('✅ Seed completed successfully!');
+}
+
+/**
+ * Run the seed script
+ */
+async function main(): Promise<void> {
+  try {
+    await seed();
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Seed failed:');
+
+    if (error instanceof Error) {
+      console.error(`   Error: ${error.message}`);
+
+      // Provide helpful hints for common errors
+      if (error.message.includes('relation') && error.message.includes('does not exist')) {
+        console.error('\n   💡 Hint: Tables may not exist yet');
+        console.error('      Run migrations first: npm run db:migrate');
+      } else if (error.message.includes('ECONNREFUSED')) {
+        console.error('\n   💡 Hint: Cannot connect to database');
+        console.error('      Make sure the database server is running');
+      }
+    } else {
+      console.error(error);
+    }
+
+    process.exit(1);
+  }
+}
+
+main();

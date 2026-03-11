@@ -1,0 +1,147 @@
+/**
+ * Database Migration Runner
+ *
+ * Executes pending Drizzle ORM migrations against the database.
+ * Run with: npx tsx src/db/migrate.ts
+ *
+ * Generated for: <%- projectName %>
+ * Database: <%- database %>
+ */
+
+import * as dotenv from 'dotenv';
+<% if (database === 'postgresql') { -%>
+import { drizzle } from 'drizzle-orm/postgres-js';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import postgres from 'postgres';
+<% } else if (database === 'sqlite') { -%>
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import Database from 'better-sqlite3';
+import * as fs from 'fs';
+import * as path from 'path';
+<% } -%>
+
+// Load environment variables
+dotenv.config();
+
+/**
+ * Run database migrations
+ *
+ * This function:
+ * 1. Connects to the database
+ * 2. Runs all pending migrations from the migrations folder
+ * 3. Logs progress and any errors
+ * 4. Closes the connection when complete
+ */
+async function runMigrations(): Promise<void> {
+  console.log('🚀 Starting database migration...\n');
+
+<% if (database === 'postgresql') { -%>
+  // Validate database URL
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error('❌ DATABASE_URL environment variable is not set');
+    console.error('   Please set it in your .env file:');
+    console.error('   DATABASE_URL=postgresql://user:password@localhost:5432/dbname');
+    process.exit(1);
+  }
+
+  // Create PostgreSQL connection for migrations
+  // max: 1 because migrations should run sequentially
+  const migrationClient = postgres(databaseUrl, { max: 1 });
+  const db = drizzle(migrationClient);
+
+  try {
+    console.log('📦 Running migrations...\n');
+
+    await migrate(db, {
+      migrationsFolder: './drizzle/migrations',
+    });
+
+    console.log('✅ Migrations completed successfully!\n');
+  } catch (error) {
+    console.error('❌ Migration failed:\n');
+
+    if (error instanceof Error) {
+      console.error(`   Error: ${error.message}`);
+
+      // Provide helpful hints for common errors
+      if (error.message.includes('ECONNREFUSED')) {
+        console.error('\n   💡 Hint: Make sure PostgreSQL is running');
+        console.error('      - Check if the database server is started');
+        console.error('      - Verify the connection string in DATABASE_URL');
+      } else if (error.message.includes('password authentication failed')) {
+        console.error('\n   💡 Hint: Check your database credentials');
+        console.error('      - Verify username and password in DATABASE_URL');
+      } else if (error.message.includes('does not exist')) {
+        console.error('\n   💡 Hint: The database may not exist');
+        console.error('      - Create the database first: CREATE DATABASE dbname;');
+      }
+    } else {
+      console.error(error);
+    }
+
+    process.exit(1);
+  } finally {
+    // Close the connection
+    await migrationClient.end();
+    console.log('🔌 Database connection closed');
+  }
+<% } else if (database === 'sqlite') { -%>
+  // Get database path from environment or use default
+  const dbPath = process.env.DATABASE_PATH || './data/<%- projectName %>.db';
+
+  // Ensure the data directory exists
+  const dataDir = path.dirname(dbPath);
+  if (!fs.existsSync(dataDir)) {
+    console.log(`📁 Creating data directory: ${dataDir}`);
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  // Create SQLite connection
+  console.log(`📂 Database path: ${dbPath}`);
+  const sqlite = new Database(dbPath);
+  const db = drizzle(sqlite);
+
+  try {
+    console.log('📦 Running migrations...\n');
+
+    migrate(db, {
+      migrationsFolder: './drizzle/migrations',
+    });
+
+    console.log('✅ Migrations completed successfully!\n');
+  } catch (error) {
+    console.error('❌ Migration failed:\n');
+
+    if (error instanceof Error) {
+      console.error(`   Error: ${error.message}`);
+
+      // Provide helpful hints for common errors
+      if (error.message.includes('SQLITE_CANTOPEN')) {
+        console.error('\n   💡 Hint: Cannot open database file');
+        console.error('      - Check file permissions');
+        console.error('      - Verify the path exists');
+      } else if (error.message.includes('SQLITE_BUSY')) {
+        console.error('\n   💡 Hint: Database is locked');
+        console.error('      - Close other connections to the database');
+        console.error('      - Check for running processes using the database');
+      }
+    } else {
+      console.error(error);
+    }
+
+    process.exit(1);
+  } finally {
+    // Close the connection
+    sqlite.close();
+    console.log('🔌 Database connection closed');
+  }
+<% } -%>
+}
+
+// Run migrations
+runMigrations().catch((error) => {
+  console.error('Unexpected error during migration:', error);
+  process.exit(1);
+});
