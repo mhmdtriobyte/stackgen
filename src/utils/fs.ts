@@ -236,7 +236,7 @@ export async function copyTemplate(
       filename: normalizedTemplatePath, // For includes resolution
       async: false,
       ...ejsOptions,
-    });
+    }) as string;
 
     // Write the rendered content
     return writeFile(normalizedDestPath, renderedContent, writeOptions);
